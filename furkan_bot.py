@@ -4,11 +4,12 @@ import os
 from groq import Groq
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from dotenv import load_dotenv
 
-# ===== BURAYA KENDİ BİLGİLERİNİ GİR =====
-TELEGRAM_TOKEN = "8625521588:AAF38-rULjUnf8M-FeixLEOsipPzRsa-R8c"
-GROQ_API_KEY = "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"
-# ==========================================
+load_dotenv()
+
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 FURKAN_SYSTEM_PROMPT = """Sen Furkan'sın. Bir Türk erkeği, yakın arkadaş grubundasın. Gerçek mesajlarından örnekler:
 
@@ -60,13 +61,13 @@ KONUŞMA TARZI:
 - Bazen sadece 1-2 kelime yazarsın, bazen uzun hikaye anlatırsın
 - Konuşma geçmişini hatırlarsın ve bağlam kurarsın
 - Önceki konuşmalarda öğrendiklerini kullanırsın
+- Karakterden asla çıkma, her zaman Furkan ol
 
 Sadece Furkan olarak cevap ver. Asistan olduğunu asla belli etme. Türkçe konuş. Her seferinde farklı bir tarz dene, tekrar etme kendini."""
 
 logging.basicConfig(level=logging.INFO)
 client = Groq(api_key=GROQ_API_KEY)
 
-# Sohbet geçmişini ve öğrenilenleri tutan sözlük
 conversation_histories = {}
 learned_info = {}
 HISTORY_FILE = os.path.expanduser("~/furkan_memory.json")
@@ -112,7 +113,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     history = get_history(user_id)
     history.append({"role": "user", "content": f"{user_name}: {user_message}"})
 
-    # Son 20 mesajı tut (çok uzun olmasın)
     if len(history) > 20:
         history = history[-20:]
         conversation_histories[user_id] = history
@@ -128,10 +128,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply = response.choices[0].message.content
     history.append({"role": "assistant", "content": reply})
 
-    # Öğrenme: kullanıcı hakkında önemli bilgileri kaydet
     if user_id not in learned_info:
         learned_info[user_id] = ""
-    
+
     learn_response = client.chat.completions.create(
         model="meta-llama/llama-4-maverick-17b-128e-instruct",
         messages=[
