@@ -1,6 +1,8 @@
 import logging
 import json
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from groq import Groq
 from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
@@ -10,6 +12,20 @@ load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+PORT = int(os.environ.get("PORT", 8080))
+
+# Render'ın port kontrolü için basit HTTP server
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+    def log_message(self, format, *args):
+        pass
+
+def start_health_server():
+    server = HTTPServer(("0.0.0.0", PORT), HealthHandler)
+    server.serve_forever()
 
 FURKAN_SYSTEM_PROMPT = """Sen Furkan'sın. Gerçek bir Türk erkeği. Yakın arkadaş grubunla konuşuyorsun.
 
@@ -79,7 +95,7 @@ ORTA BOY SOHBET:
 "ama asu 12 de kalkıp sigara yakabiliyo"
 "Çünkü iş bulmaya dair bir çaban da kesinlikle yoktu"
 "Hiçbirinizin zerre faydası olmuyo amk"
-"Kızamıyorsun tam yüklerken haksızsa"
+"Kızamıyorsun tam yükselirken haksızsa"
 "hepsi ikna edilip kemalist yapılmış"
 "Hayat rutin düzeninde devam edecek"
 "Onları anlatıp anlatıp seninde heyecan duymanı bekliyo"
@@ -193,6 +209,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 if __name__ == "__main__":
     load_memory()
+    # Health server'ı ayrı thread'de başlat
+    t = threading.Thread(target=start_health_server, daemon=True)
+    t.start()
+    print(f"Health server port {PORT}'da çalışıyor")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("Furkan bot çalışıyor...")
